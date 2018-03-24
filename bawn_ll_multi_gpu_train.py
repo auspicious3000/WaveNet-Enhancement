@@ -14,10 +14,17 @@ import tensorflow as tf
 import bawn
 from generator_ll import Generator_Hybrid_v2
 
-LOG_DIR = '/scratch/logs/run22'
-PRE_TRAINED = '/scratch/logs/run#/bawn_pr.ckpt-299131'
-NUM_GPUS = 8
-LOG_DEVICE_PLACEMENT = False
+
+parser = argparse.ArgumentParser()  
+parser.add_argument("LOG_DIR", help="LOG_DIR")
+parser.add_argument("PRE_TRAINED", help="PRE_TRAINED")
+parser.add_argument("NUM_GPUS", help="NUM_GPUS", type=int)
+args = parser.parse_args()  
+
+LOG_DIR = args.LOG_DIR
+PRE_TRAINED = args.PRE_TRAINED
+NUM_GPUS = args.NUM_GPUS
+LOG_DEVICE_PLACEMENT = False 
 
 
 # Constants describing the training process.
@@ -223,7 +230,7 @@ def train():
             start = sess.run(global_step)
             for step in xrange(start, MAX_STEPS):
                 if sv.should_stop():
-                    print('SB!!!!!!!!!')
+                    print('OOOPS!!!!!!!!!')
                     break
                 start_time = time.time()
                 subpick = sess.run(subdiv)
@@ -264,7 +271,5 @@ if __name__ == '__main__':
     #os.environ["CUDA_VISIBLE_DEVICES"]="0"
     with tf.device('/cpu:0'):
         data_clean, data_noisy, data_labels = bawn.load_data_likli('clean_train.mat', 'noisy_train.mat', 'target_train.mat')
-        data_clean = data_clean[:32,:]
-        data_noisy = data_noisy[:32,:]
-        data_labels = data_labels[:32,:]
+    
     train()

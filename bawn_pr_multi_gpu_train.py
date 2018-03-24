@@ -7,14 +7,20 @@ import os.path
 import re
 import time
 import pickle
+import argparse
 
 import numpy as np
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 import bawn
 
-LOG_DIR = '/scratch/logs/run10'
-NUM_GPUS = 8
+parser = argparse.ArgumentParser()  
+parser.add_argument("LOG_DIR", help="LOG_DIR")
+parser.add_argument("NUM_GPUS", help="NUM_GPUS", type=int)
+args = parser.parse_args()  
+
+LOG_DIR = args.LOG_DIR
+NUM_GPUS = args.NUM_GPUS
 LOG_DEVICE_PLACEMENT = False
 
 
@@ -22,7 +28,7 @@ LOG_DEVICE_PLACEMENT = False
 MOVING_AVERAGE_DECAY = 0.9999
 INITIAL_LEARNING_RATE = 0.001
 ANNEALING_RATE = 0.9886
-MAX_STEPS = 300000
+MAX_STEPS = 350000
 NUM_STEPS_PER_DECAY = 1000
 PERIOD_SUMMARY = 120
 PERIOD_CHECKPOINT = 300
@@ -104,8 +110,10 @@ def train():
     with tf.Graph().as_default(), tf.device('/cpu:0'):
         # training data initializers
         with tf.name_scope('input'):
-            segments_initializer, labels_initializer, input_segments, input_labels = bawn.data_initializer(
-                                                                      data_segments, data_labels)
+            segments_initializer, labels_initializer, input_segments, input_labels = \
+            bawn.data_initializer_prior(data_segments, data_labels)
+
+            segment, label = tf.train.slice_input_producer([input_segments, input_labels])
                     
         # Create a variable to count the number of train() calls. This equals the
         # number of batches processed * num_gpus.
@@ -125,7 +133,7 @@ def train():
                 with tf.device('/gpu:%d' % i):
                     with tf.name_scope('%s_%d' % (bawn.TOWER_NAME, i)) as scope:
                         # Get batches of images and labels for BAWN.
-                        segments, labels = bawn.inputs_batch_prior(input_segments, input_labels)
+                        segments, labels = tf.train.batch([segment, label], batch_size=bawn.BATCH_SIZE)
             
                         # Calculate the loss for one tower of the BAWN model. This function
                         # constructs the entire BAWN model but shares the variables across
@@ -165,13 +173,14 @@ def train():
     
            
         # Create a saver.
-        saver = tf.train.Saver(tf.global_variables(), max_to_keep=100)
+        saver = tf.train.Saver(tf.global_variables(), max_to_keep=1000)
     
         # Build the summary operation from the last tower summaries.
         summary_op = tf.summary.merge(summaries)
         
         sess_config = tf.ConfigProto(allow_soft_placement=True,
-                                log_device_placement=LOG_DEVICE_PLACEMENT)                        
+                                log_device_placement=LOG_DEVICE_PLACEMENT)  
+        sess_config.gpu_options.allow_growth = True
         
         # Superviser 
         sv = tf.train.Supervisor(logdir=LOG_DIR
@@ -179,7 +188,7 @@ def train():
                                  ,saver=saver
                                  ,save_model_secs=PERIOD_CHECKPOINT
                                  ,save_summaries_secs=PERIOD_SUMMARY
-                                 ,checkpoint_basename='bawn_pr.ckpt')
+                                 ,checkpoint_basename='bawn_pr_v2.ckpt')
         
                 
         #sess = sv.prepare_or_wait_for_session(config=sess_config)
@@ -196,10 +205,11 @@ def train():
             sv.start_standard_services(sess)
             sv.start_queue_runners(sess)
                 
-            losses = []    
-            for step in xrange(MAX_STEPS):
+            losses = []
+            start = sess.run(global_step)
+            for step in xrange(start, MAX_STEPS):
                 if sv.should_stop():
-                    print('SB!!!!!!!!!')
+                    print('OOOPS!!!!!!!!!')
                     break
                 start_time = time.time()
                 _, loss_value = sess.run([train_op, loss])
@@ -224,5 +234,6 @@ if __name__ == '__main__':
     #os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   # see issue #152
     #os.environ["CUDA_VISIBLE_DEVICES"]="0"
     with tf.device('/cpu:0'):
-        data_segments, data_labels = bawn.load_data('train_pr.mat','target_pr.mat')
+        data_segments, data_labels = bawn.load_data_prior('train_pr.mat','target_pr.mat')
+        #data_segments[:, 0:bawn.LEN_PAD] = np.full((data_segments.shape[0], bawn.LEN_PAD), 127, np.uint8)
     train()
