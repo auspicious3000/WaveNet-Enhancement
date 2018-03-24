@@ -6,7 +6,7 @@ bawn_pr_multi_gpu_train.py trains the prior model.
 
 bawn_ll_multi_gpu_train.py trains the likelihood model with a fixed prior model.
 
-generator_ll.py builds a fast sample by sample generator for the prior or the likelihood model. It generates pseudo clean prediction using the current model as described in the our paper.
+generator_ll.py builds a fast sample by sample generator for the prior or the likelihood model. It generates pseudo clean prediction using the current model in the iterative training process as described in the our paper.
 
 ## Train Prior Model 
 
