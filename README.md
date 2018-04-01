@@ -6,6 +6,8 @@ bawn_pr_multi_gpu_train.py trains the prior model.
 
 bawn_ll_multi_gpu_train.py trains the likelihood model with a fixed prior model.
 
+generator_ll.py builds a fast sample by sample generator for the prior or the likelihood model. It generates pseudo clean prediction using the current model in the iterative training process as described in the our paper.
+
 ## Train Prior Model 
 
 The prior model is a 40 layer WaveNet consists of 4 blocks with 10 layers each.
@@ -45,4 +47,7 @@ DataType: uint8
 ### Usage
 
 python bawn_ll_multi_gpu_train.py /logdir /path_to_prior_model NUM_GPUS
+
+### Note
+Training likelihood model is very time-consuming due to the iterative training process. Recently, it has been greatly accelerated using approximations, which has not been included in this branch yet.
 
